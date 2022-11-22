@@ -18,15 +18,15 @@ const cy = cytoscape({
       },
     },
     {
-      selector: '.red',
-      style: {
-        'background-color': 'red',
-      },
-    },
-    {
       selector: 'edge',
       style: {
         // label: 'data(id)',
+      },
+    },
+    {
+      selector: '.hovered',
+      style: {
+        width: 4,
       },
     },
   ],
@@ -38,12 +38,26 @@ const cy = cytoscape({
   wheelSensitivity: 0.1,
 });
 
-const btn = document.querySelector('#btn');
-btn.addEventListener('click', () => {
-  btnClicked();
+document.querySelector('#btnAddEvents').addEventListener('click', () => {
+  addEvents();
+});
+document.querySelector('#btnRemoveEvents').addEventListener('click', () => {
+  removeEvents();
 });
 
-function btnClicked() {
-  const c = cy.$('#c');
-  c.addClass('red');
+function addEvents() {
+  cy.edges().on('mousemove', edgeHovered).on('mouseout', edgeHoveredOut);
+}
+function removeEvents() {
+  cy.edges().removeListener('mousemove', edgeHovered).removeListener('mouseout', edgeHoveredOut);
+}
+
+function edgeHovered(evt) {
+  const edge = evt.target;
+  edge.addClass('hovered');
+}
+function edgeHoveredOut(evt) {
+  console.log('hovered out');
+  const edge = evt.target;
+  edge.removeClass('hovered');
 }
