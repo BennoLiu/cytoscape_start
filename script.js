@@ -11,7 +11,7 @@ cytoscape.use(undoRedo);
 let cy;
 // let ur;
 
-initMesh();
+initTier();
 
 const btnEdit = document.querySelector('#btnEdit');
 const btnUndo = document.querySelector('#btnUndo');
@@ -54,6 +54,15 @@ function shareStyle() {
       selector: 'edge',
       style: {
         // label: 'data(id)',
+        'curve-style': 'taxi',
+        'taxi-direction': 'vertical',
+        'taxi-turn': '50%',
+      },
+    },
+    {
+      selector: 'edge[distance]',
+      style: {
+        'taxi-turn': 'data(distance)',
       },
     },
     {
@@ -74,21 +83,58 @@ function init(elements, style, layout) {
     wheelSensitivity: 0.1,
     autoungrabify: true,
   });
-  cy.undoRedo();
+  cy.edges().unpanify();
   addEvents();
+  const options = {
+    actions: {
+      updateDistance: {
+        _do: (args) => {
+          args.edge.data('distance', `${args.endDistance}%`);
+          return args;
+        },
+        _undo: (args) => {
+          args.edge.data('distance', `${args.startDistance}%`);
+          return args;
+        },
+      },
+    },
+  };
+  const ur = cy.undoRedo(options);
 }
 
 function addEvents() {
-  cy.edges().on('mousemove', edgeHovered).on('mouseout', edgeHoveredOut);
+  cy.edges().on('mouseover', edgeHovered).on('mouseout', edgeHoveredOut);
   cy.on('afterDo afterUndo afterRedo', afterEditAction);
 }
+
+function addEditModeEvents() {
+  cy.on('mousedown', cyMousedown).on('mousemove', cyMousemove).on('mouseup', cyMouseup);
+}
+
+function removeEditModeEvents() {
+  cy.removeListener('mousedown', cyMousedown).removeListener('mousemove', cyMousemove).removeListener('mouseup', cyMouseup);
+}
+
 function edgeHovered(evt) {
   const edge = evt.target;
   edge.addClass('hovered');
+  if (!cy.data('duringMousedown')) {
+    const startDistance = parseFloat(edge.data('distance')) || 50;
+    const args = {
+      edge: edge,
+      edgeId: edge.id(),
+      startDistance: startDistance,
+    };
+    cy.data('movingArgs', args);
+  }
 }
+
 function edgeHoveredOut(evt) {
   const edge = evt.target;
   edge.removeClass('hovered');
+  if (!cy.data('duringMousedown')) {
+    cy.removeData('movingArgs');
+  }
 }
 
 function afterEditAction(evt, actionName, args, res) {
@@ -96,8 +142,44 @@ function afterEditAction(evt, actionName, args, res) {
   updateButtons(true);
 }
 
+function cyMousedown(evt) {
+  cy.data('duringMousedown', true);
+}
+
+function cyMousemove(evt) {
+  if (cy.data('duringMousedown') && cy.data('movingArgs') !== undefined) {
+    const edge = cy.data('movingArgs').edge;
+    const srcY = edge.source().position().y;
+    const tgtY = edge.target().position().y;
+    const one = (tgtY - srcY) / 100;
+    const srcH = edge.source().numericStyle('height');
+    const minDistance = Math.abs((srcH * 0.5) / one);
+    const mouseY = evt.position.y;
+    let newDistance = (mouseY - srcY) / one;
+    if (newDistance > 100 - minDistance) {
+      newDistance = 100 - minDistance;
+    }
+    if (newDistance < minDistance) {
+      newDistance = minDistance;
+    }
+    edge.data('distance', `${newDistance}%`);
+  }
+}
+
+function cyMouseup(evt) {
+  cy.removeData('duringMousedown');
+  if (cy.data('movingArgs') !== undefined) {
+    const args = cy.data('movingArgs');
+    args.endDistance = parseFloat(args.edge.data('distance')) || 50;
+    const ur = cy.scratch('_undoRedo').instance;
+    ur.do('updateDistance', args);
+    cy.removeData('movingArgs');
+  }
+}
+
 function startEdit() {
   cy.autoungrabify(false);
+  addEditModeEvents();
   updateButtons(true);
 }
 
@@ -113,6 +195,7 @@ function redo() {
 
 function endEdit() {
   cy.autoungrabify(true);
+  removeEditModeEvents();
   updateButtons(false);
 }
 
