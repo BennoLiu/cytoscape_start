@@ -1,12 +1,15 @@
 import cytoscape from 'cytoscape';
 import fcose from 'cytoscape-fcose';
 import dagre from 'cytoscape-dagre';
+import undoRedo from 'cytoscape-undo-redo';
 import { mesh1, tier1 } from './data';
 
 cytoscape.use(fcose);
 cytoscape.use(dagre);
+cytoscape.use(undoRedo);
 
 let cy;
+// let ur;
 
 initMesh();
 
@@ -17,6 +20,8 @@ const btnCancel = document.querySelector('#btnCancel');
 document.querySelector('#initMesh').addEventListener('click', initMesh);
 document.querySelector('#initTier').addEventListener('click', initTier);
 btnEdit.addEventListener('click', startEdit);
+btnUndo.addEventListener('click', undo);
+btnRedo.addEventListener('click', redo);
 btnCancel.addEventListener('click', endEdit);
 
 function initMesh() {
@@ -69,11 +74,13 @@ function init(elements, style, layout) {
     wheelSensitivity: 0.1,
     autoungrabify: true,
   });
+  cy.undoRedo();
   addEvents();
 }
 
 function addEvents() {
   cy.edges().on('mousemove', edgeHovered).on('mouseout', edgeHoveredOut);
+  cy.on('afterDo afterUndo afterRedo', afterEditAction);
 }
 function edgeHovered(evt) {
   const edge = evt.target;
@@ -84,9 +91,24 @@ function edgeHoveredOut(evt) {
   edge.removeClass('hovered');
 }
 
+function afterEditAction(evt, actionName, args, res) {
+  console.log(`${evt.type} ${actionName}`);
+  updateButtons(true);
+}
+
 function startEdit() {
   cy.autoungrabify(false);
   updateButtons(true);
+}
+
+function undo() {
+  const ur = cy.scratch('_undoRedo').instance;
+  ur.undo();
+}
+
+function redo() {
+  const ur = cy.scratch('_undoRedo').instance;
+  ur.redo();
 }
 
 function endEdit() {
@@ -95,8 +117,9 @@ function endEdit() {
 }
 
 function updateButtons(editMode) {
+  const ur = cy.scratch('_undoRedo').instance;
   btnEdit.disabled = editMode;
-  btnUndo.disabled = !editMode;
-  btnRedo.disabled = !editMode;
+  btnUndo.disabled = !editMode || ur.isUndoStackEmpty();
+  btnRedo.disabled = !editMode || ur.isRedoStackEmpty();
   btnCancel.disabled = !editMode;
 }
