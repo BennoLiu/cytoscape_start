@@ -10,8 +10,14 @@ let cy;
 
 initMesh();
 
+const btnEdit = document.querySelector('#btnEdit');
+const btnUndo = document.querySelector('#btnUndo');
+const btnRedo = document.querySelector('#btnRedo');
+const btnCancel = document.querySelector('#btnCancel');
 document.querySelector('#initMesh').addEventListener('click', initMesh);
 document.querySelector('#initTier').addEventListener('click', initTier);
+btnEdit.addEventListener('click', startEdit);
+btnCancel.addEventListener('click', endEdit);
 
 function initMesh() {
   const meshStyle = shareStyle();
@@ -61,6 +67,7 @@ function init(elements, style, layout) {
     style: style,
     layout: layout,
     wheelSensitivity: 0.1,
+    autoungrabify: true,
   });
   addEvents();
 }
@@ -75,4 +82,21 @@ function edgeHovered(evt) {
 function edgeHoveredOut(evt) {
   const edge = evt.target;
   edge.removeClass('hovered');
+}
+
+function startEdit() {
+  cy.autoungrabify(false);
+  updateButtons(true);
+}
+
+function endEdit() {
+  cy.autoungrabify(true);
+  updateButtons(false);
+}
+
+function updateButtons(editMode) {
+  btnEdit.disabled = editMode;
+  btnUndo.disabled = !editMode;
+  btnRedo.disabled = !editMode;
+  btnCancel.disabled = !editMode;
 }
